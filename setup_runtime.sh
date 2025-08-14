@@ -25,9 +25,16 @@ echo "Virtual environment activated. Python location: $(which python)"
 # 3) Clone repo https://github.com/Francis-Rings/StableAvatar.git
 echo "Cloning StableAvatar repository..."
 cd /workspace
-if [ ! -d "StableAvatar" ]; then
-    git clone https://github.com/Francis-Rings/StableAvatar.git
-fi
+# Ensure we start with a fresh clone each time
+rm -rf StableAvatar
+git clone https://github.com/Francis-Rings/StableAvatar.git
+
+# Move custom application files into the cloned repository
+echo "Moving custom application files into the repository..."
+mv /workspace/app.py /workspace/StableAvatar/app.py
+mv /workspace/audio_extractor.py /workspace/StableAvatar/audio_extractor.py
+mv /workspace/vocal_seperator.py /workspace/StableAvatar/vocal_seperator.py
+
 cd StableAvatar
 
 # 4) Change to StableAvatar directory (already done above)
