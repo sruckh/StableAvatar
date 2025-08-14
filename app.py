@@ -19,7 +19,7 @@ def init_app():
 
 init_app()
 
-def run_inference(prompt, reference_image, audio_file, width=512, height=512, sample_steps=50):
+def run_inference(prompt, reference_image, audio_file, merge_audio, width=512, height=512, sample_steps=50):
     """
     Run the StableAvatar inference script with the given parameters
     """
@@ -30,7 +30,7 @@ def run_inference(prompt, reference_image, audio_file, width=512, height=512, sa
     
     # Save the uploaded files
     reference_image.save(ref_img_path)
-    audio_file.save(audio_path)
+    shutil.copy(audio_file, audio_path)
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -72,16 +72,27 @@ def run_inference(prompt, reference_image, audio_file, width=512, height=512, sa
         
         if result.returncode == 0:
             # Find the generated video
-            video_path = os.path.join(output_dir, "video_without_audio.mp4")
-            if os.path.exists(video_path):
-                return video_path, "Inference completed successfully!"
+            video_path_no_audio = None
+            potential_path = os.path.join(output_dir, "video_without_audio.mp4")
+            if os.path.exists(potential_path):
+                video_path_no_audio = potential_path
             else:
-                # Try to find any mp4 file in the output directory
                 mp4_files = list(Path(output_dir).glob("*.mp4"))
                 if mp4_files:
-                    return str(mp4_files[0]), "Inference completed successfully!"
+                    video_path_no_audio = str(mp4_files[0])
+
+            if not video_path_no_audio:
+                return None, f"Video file not found. Command output: {result.stdout[:500]}"
+
+            if merge_audio:
+                print(f"Merge audio requested. Merging {video_path_no_audio} with {audio_path}")
+                final_video_path, merge_status = merge_audio_video(video_path_no_audio, audio_path)
+                if final_video_path:
+                    return final_video_path, f"Inference and audio merge successful! {merge_status}"
                 else:
-                    return None, f"Video file not found. Command output: {result.stdout[:500]}"
+                    return video_path_no_audio, f"Inference successful, but audio merge failed: {merge_status}"
+            else:
+                return video_path_no_audio, "Inference completed successfully (audio not merged)."
         else:
             return None, f"Error running inference: {result.stderr[:500]}"
             
@@ -94,13 +105,14 @@ def extract_audio(video_file):
     """
     Extract audio from video file using audio_extractor.py
     """
+    if not video_file:
+        return None, "No video file provided."
+
     # Save uploaded video to temporary location
     video_path = "temp/input_video.mp4"
     audio_output_path = "temp/extracted_audio.wav"
     
-    with open(video_path, "wb") as f:
-        with open(video_file.name, "rb") as vf:
-            f.write(vf.read())
+    shutil.copy(video_file.name, video_path)
     
     # Run audio extraction command
     cmd = [
@@ -127,13 +139,14 @@ def separate_vocals(audio_file):
     """
     Separate vocals from audio file using vocal_seperator.py
     """
+    if not audio_file:
+        return None, "No audio file provided."
+
     # Save uploaded audio to temporary location
     audio_path = "temp/input_audio.wav"
     vocal_output_path = "temp/vocal_output.wav"
     
-    with open(audio_path, "wb") as f:
-        with open(audio_file.name, "rb") as af:
-            f.write(af.read())
+    shutil.copy(audio_file, audio_path)
     
     # Run vocal separation command
     model_path = "./checkpoints/Kim_Vocal_2.onnx"
@@ -159,25 +172,11 @@ def separate_vocals(audio_file):
     except Exception as e:
         return None, f"Error separating vocals: {str(e)}"
 
-def merge_audio_video(video_file, audio_file):
+def merge_audio_video(video_path, audio_path):
     """
-    Merge audio with video using ffmpeg
+    Merge audio with video using ffmpeg. Takes file paths as input.
     """
-    # Save uploaded files to temporary locations
-    video_path = "temp/input_video.mp4"
-    audio_path = "temp/input_audio.wav"
     output_path = "output/final_output.mp4"
-    
-    # Save files
-    with open(video_path, "wb") as f:
-        with open(video_file.name, "rb") as vf:
-            f.write(vf.read())
-        
-    with open(audio_path, "wb") as f:
-        with open(audio_file.name, "rb") as af:
-            f.write(af.read())
-    
-    # Create output directory
     os.makedirs("output", exist_ok=True)
     
     # Run ffmpeg command
@@ -230,6 +229,7 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
                     height = gr.Number(value=512, label="Height")
                     sample_steps = gr.Number(value=50, label="Sample Steps")
                 
+                merge_audio_checkbox = gr.Checkbox(label="Merge original audio into final video", value=True)
                 run_button = gr.Button("Generate Video")
                 
             with gr.Column():
@@ -239,7 +239,7 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
         
         run_button.click(
             fn=run_inference,
-            inputs=[prompt, reference_image, audio_file, width, height, sample_steps],
+            inputs=[prompt, reference_image, audio_file, merge_audio_checkbox, width, height, sample_steps],
             outputs=[output_video, status]
         )
     
@@ -250,13 +250,19 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
                 extract_button = gr.Button("Extract Audio")
                 
             with gr.Column():
-                extracted_audio = gr.Audio(label="Extracted Audio")
+                extracted_audio = gr.Audio(label="Extracted Audio", type="filepath")
                 extraction_status = gr.Textbox(label="Status", interactive=False)
-        
+                send_to_inference_audio = gr.Button("Send to Inference Tab")
+
         extract_button.click(
             fn=extract_audio,
             inputs=[video_input],
             outputs=[extracted_audio, extraction_status]
+        )
+        send_to_inference_audio.click(
+            fn=lambda x: x,
+            inputs=[extracted_audio],
+            outputs=[audio_file]
         )
     
     with gr.Tab("Vocal Separation"):
@@ -266,30 +272,19 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
                 separate_button = gr.Button("Separate Vocals")
                 
             with gr.Column():
-                vocal_output = gr.Audio(label="Vocal Output")
+                vocal_output = gr.Audio(label="Vocal Output", type="filepath")
                 separation_status = gr.Textbox(label="Status", interactive=False)
-        
+                send_to_inference_vocals = gr.Button("Send to Inference Tab")
+
         separate_button.click(
             fn=separate_vocals,
             inputs=[audio_input],
             outputs=[vocal_output, separation_status]
         )
-    
-    with gr.Tab("Audio/Video Merge"):
-        with gr.Row():
-            with gr.Column():
-                merge_video_input = gr.Video(label="Input Video")
-                merge_audio_input = gr.Audio(type="filepath", label="Input Audio")
-                merge_button = gr.Button("Merge Audio and Video")
-                
-            with gr.Column():
-                merged_output = gr.Video(label="Merged Output")
-                merge_status = gr.Textbox(label="Status", interactive=False)
-        
-        merge_button.click(
-            fn=merge_audio_video,
-            inputs=[merge_video_input, merge_audio_input],
-            outputs=[merged_output, merge_status]
+        send_to_inference_vocals.click(
+            fn=lambda x: x,
+            inputs=[vocal_output],
+            outputs=[audio_file]
         )
 
 # Launch the app when run directly
