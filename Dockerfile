@@ -8,30 +8,13 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /workspace
 
-# Create Python 3.11 virtual environment
-RUN python3.11 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy runtime setup script
+COPY setup_runtime.sh /workspace/setup_runtime.sh
+RUN chmod +x /workspace/setup_runtime.sh
 
-# Clone the StableAvatar repository
-RUN git clone https://github.com/Francis-Rings/StableAvatar.git
+# Copy application files
+COPY . /workspace/StableAvatar
 WORKDIR /workspace/StableAvatar
-
-# Install Python requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install flash attention
-RUN pip install --no-cache-dir https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
-
-# Install huggingface_hub CLI
-RUN pip install --no-cache-dir "huggingface_hub[cli]"
-
-# Install audio-separator
-RUN pip install --no-cache-dir audio-separator
-
-# Download checkpoints
-RUN mkdir -p checkpoints
-RUN huggingface-cli download FrancisRing/StableAvatar --local-dir ./checkpoints
 
 # Expose port for Gradio interface
 EXPOSE 7860
@@ -39,5 +22,6 @@ EXPOSE 7860
 # Set Python stream buffer to 1
 ENV PYTHONUNBUFFERED=1
 
-# Command to run the Gradio app (to be implemented)
+# Use the runtime setup script as entry point
+ENTRYPOINT ["/workspace/setup_runtime.sh"]
 CMD ["python", "app.py"]

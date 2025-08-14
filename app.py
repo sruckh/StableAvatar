@@ -5,9 +5,19 @@ import librosa
 import shutil
 from pathlib import Path
 
-# Create necessary directories
-os.makedirs("temp", exist_ok=True)
-os.makedirs("output", exist_ok=True)
+# Initialize the application
+def init_app():
+    """Initialize the application directories and environment"""
+    os.makedirs("temp", exist_ok=True)
+    os.makedirs("output", exist_ok=True)
+    os.makedirs("checkpoints", exist_ok=True)
+    
+    # Set Python stream buffer to 1
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    
+    print("Application initialized successfully!")
+
+init_app()
 
 def run_inference(prompt, reference_image, audio_file, width=512, height=512, sample_steps=50):
     """
@@ -18,25 +28,42 @@ def run_inference(prompt, reference_image, audio_file, width=512, height=512, sa
     audio_path = "temp/audio.wav"
     output_dir = "output/inference_result"
     
+    # Save the uploaded files
     reference_image.save(ref_img_path)
     audio_file.save(audio_path)
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
-    # Run inference command
+    # Prepare the inference command with proper arguments
     cmd = [
-        "bash", "inference.sh"
+        "python", "inference.py",
+        "--config_path=deepspeed_config/wan2.1/wan_civitai.yaml",
+        f"--pretrained_model_name_or_path=./checkpoints/Wan2.1-Fun-V1.1-1.3B-InP",
+        f"--transformer_path=./checkpoints/StableAvatar-1.3B/transformer3d-square.pt",
+        f"--pretrained_wav2vec_path=./checkpoints/wav2vec2-base-960h",
+        f"--validation_reference_path={ref_img_path}",
+        f"--validation_driven_audio_path={audio_path}",
+        f"--output_dir={output_dir}",
+        f"--validation_prompts={prompt}",
+        "--seed=42",
+        "--ulysses_degree=1",
+        "--ring_degree=1",
+        "--motion_frame=25",
+        f"--sample_steps={sample_steps}",
+        f"--width={width}",
+        f"--height={height}",
+        "--overlap_window_length=5",
+        "--clip_sample_n_frames=81",
+        "--GPU_memory_mode=model_full_load",
+        "--sample_text_guide_scale=5.0",
+        "--sample_audio_guide_scale=3.0"
     ]
     
-    # Set environment variables for this run
-    env = os.environ.copy()
-    env["MODEL_NAME"] = "./checkpoints/Wan2.1-Fun-V1.1-1.3B-InP"
-    
     try:
+        print(f"Running inference command: {' '.join(cmd)}")
         result = subprocess.run(
             cmd, 
-            env=env,
             cwd=".",
             capture_output=True, 
             text=True, 
@@ -49,9 +76,14 @@ def run_inference(prompt, reference_image, audio_file, width=512, height=512, sa
             if os.path.exists(video_path):
                 return video_path, "Inference completed successfully!"
             else:
-                return None, f"Video file not found. Command output: {result.stdout}"
+                # Try to find any mp4 file in the output directory
+                mp4_files = list(Path(output_dir).glob("*.mp4"))
+                if mp4_files:
+                    return str(mp4_files[0]), "Inference completed successfully!"
+                else:
+                    return None, f"Video file not found. Command output: {result.stdout[:500]}"
         else:
-            return None, f"Error running inference: {result.stderr}"
+            return None, f"Error running inference: {result.stderr[:500]}"
             
     except subprocess.TimeoutExpired:
         return None, "Inference timed out after 1 hour"
@@ -67,7 +99,8 @@ def extract_audio(video_file):
     audio_output_path = "temp/extracted_audio.wav"
     
     with open(video_path, "wb") as f:
-        video_file.save(f)
+        with open(video_file.name, "rb") as vf:
+            f.write(vf.read())
     
     # Run audio extraction command
     cmd = [
@@ -77,12 +110,13 @@ def extract_audio(video_file):
     ]
     
     try:
+        print(f"Running audio extraction command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode == 0 and os.path.exists(audio_output_path):
             return audio_output_path, "Audio extracted successfully!"
         else:
-            return None, f"Error extracting audio: {result.stderr}"
+            return None, f"Error extracting audio: {result.stderr[:500]}"
             
     except subprocess.TimeoutExpired:
         return None, "Audio extraction timed out"
@@ -98,7 +132,8 @@ def separate_vocals(audio_file):
     vocal_output_path = "temp/vocal_output.wav"
     
     with open(audio_path, "wb") as f:
-        audio_file.save(f)
+        with open(audio_file.name, "rb") as af:
+            f.write(af.read())
     
     # Run vocal separation command
     model_path = "./checkpoints/Kim_Vocal_2.onnx"
@@ -111,12 +146,13 @@ def separate_vocals(audio_file):
     ]
     
     try:
+        print(f"Running vocal separation command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode == 0 and os.path.exists(vocal_output_path):
             return vocal_output_path, "Vocal separation completed successfully!"
         else:
-            return None, f"Error separating vocals: {result.stderr}"
+            return None, f"Error separating vocals: {result.stderr[:500]}"
             
     except subprocess.TimeoutExpired:
         return None, "Vocal separation timed out"
@@ -132,11 +168,14 @@ def merge_audio_video(video_file, audio_file):
     audio_path = "temp/input_audio.wav"
     output_path = "output/final_output.mp4"
     
+    # Save files
     with open(video_path, "wb") as f:
-        video_file.save(f)
+        with open(video_file.name, "rb") as vf:
+            f.write(vf.read())
         
     with open(audio_path, "wb") as f:
-        audio_file.save(f)
+        with open(audio_file.name, "rb") as af:
+            f.write(af.read())
     
     # Create output directory
     os.makedirs("output", exist_ok=True)
@@ -155,12 +194,13 @@ def merge_audio_video(video_file, audio_file):
     ]
     
     try:
+        print(f"Running ffmpeg command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode == 0 and os.path.exists(output_path):
             return output_path, "Audio and video merged successfully!"
         else:
-            return None, f"Error merging audio and video: {result.stderr}"
+            return None, f"Error merging audio and video: {result.stderr[:500]}"
             
     except subprocess.TimeoutExpired:
         return None, "Audio/video merge timed out"
@@ -178,11 +218,11 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
                 prompt = gr.Textbox(
                     label="Prompt",
                     placeholder="Enter your prompt here",
-                    value="A middle-aged woman with short light brown hair, wearing pearl earrings and a blue blazer, is speaking passionately in front of a blurred background resembling a government building. Her mouth is open mid-phrase, her expression is engaged and energetic, and the lighting is bright and even, suggesting a television interview or live broadcast. The scene gives the impression she is singing with conviction and purpose."
+                    value="A person is speaking in front of a blurred background. The scene gives the impression they are singing with conviction and purpose."
                 )
                 gr.Markdown("[Description of first frame]-[Description of human behavior]-[Description of background (optional)]")
                 
-                reference_image = gr.Image(type="filepath", label="Reference Image")
+                reference_image = gr.Image(type="pil", label="Reference Image")
                 audio_file = gr.Audio(type="filepath", label="Audio File")
                 
                 with gr.Row():
@@ -195,7 +235,7 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
             with gr.Column():
                 output_video = gr.Video(label="Generated Video")
                 status = gr.Textbox(label="Status", interactive=False)
-                download_button = gr.Button("Download Final Video")
+                # download_button = gr.Button("Download Final Video")
         
         run_button.click(
             fn=run_inference,
@@ -252,5 +292,6 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
             outputs=[merged_output, merge_status]
         )
 
+# Launch the app when run directly
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
