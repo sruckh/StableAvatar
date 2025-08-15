@@ -31,6 +31,6 @@ imageio[ffmpeg]
 imageio[pyav]
 tensorboard
 beautifulsoup4
-ftfy
 librosa
 torchaudio==2.6.0
+audio-separator
