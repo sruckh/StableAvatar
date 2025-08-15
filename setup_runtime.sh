@@ -45,6 +45,8 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # 6) Install flash attention from source to ensure ABI compatibility
+echo "Installing build dependencies for flash-attention..."
+pip install wheel
 echo "Installing flash attention from source..."
 pip install flash-attn --no-build-isolation
 
