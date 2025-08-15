@@ -70,5 +70,10 @@ echo "1. Activate the virtual environment: source /workspace/venv/bin/activate"
 echo "2. Navigate to the project directory: cd /workspace/StableAvatar"
 echo "3. Run the app: python app.py"
 
+# Print environment info for debugging
+echo "--- Printing environment versions for debugging ---"
+python -c "import torch; print(f'Torch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
+echo "-------------------------------------------------"
+
 # Keep the container running
 exec "$@"
