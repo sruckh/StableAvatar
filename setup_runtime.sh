@@ -56,11 +56,11 @@ pip install "huggingface_hub[cli]"
 echo "Creating checkpoints directory..."
 mkdir -p checkpoints
 
-# 9) huggingface-cli download FrancisRing/StableAvatar --local-dir ./checkpoints
+# 9) Download model checkpoints
 echo "Installing hf-transfer for faster downloads..."
 pip install hf-transfer
-echo "Downloading model checkpoints..."
-huggingface-cli download FrancisRing/StableAvatar --local-dir ./checkpoints
+echo "Downloading model checkpoints with hf_transfer..."
+hf download FrancisRing/StableAvatar --local-dir ./checkpoints
 
 # 10) All dependencies are now handled by requirements.txt
 
