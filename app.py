@@ -19,7 +19,7 @@ def init_app():
 
 init_app()
 
-def run_inference(prompt, reference_image, audio_file, merge_audio, width=512, height=512, sample_steps=50):
+def run_inference(prompt, reference_image, audio_file, merge_audio, gpu_mode, width=512, height=512, sample_steps=50):
     """
     Run the StableAvatar inference script with the given parameters
     """
@@ -55,7 +55,7 @@ def run_inference(prompt, reference_image, audio_file, merge_audio, width=512, h
         f"--height={height}",
         "--overlap_window_length=5",
         "--clip_sample_n_frames=81",
-        "--GPU_memory_mode=model_full_load",
+        f"--GPU_memory_mode={gpu_mode}",
         "--sample_text_guide_scale=5.0",
         "--sample_audio_guide_scale=3.0"
     ]
@@ -230,11 +230,18 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
                 reference_image = gr.Image(type="pil", label="Reference Image")
                 audio_file = gr.Audio(type="filepath", label="Audio File")
                 
-                with gr.Row():
-                    width = gr.Number(value=512, label="Width")
-                    height = gr.Number(value=512, label="Height")
-                    sample_steps = gr.Number(value=50, label="Sample Steps")
-                
+                with gr.Accordion("Advanced Settings", open=False):
+                    with gr.Row():
+                        width = gr.Number(value=512, label="Width")
+                        height = gr.Number(value=512, label="Height")
+                        sample_steps = gr.Number(value=50, label="Sample Steps")
+                    gpu_mode = gr.Dropdown(
+                        label="GPU Memory Mode",
+                        info="Use 'model_cpu_offload' or 'sequential_cpu_offload' for lower VRAM.",
+                        choices=["model_full_load", "model_cpu_offload", "model_cpu_offload_and_qfloat8", "sequential_cpu_offload"],
+                        value="model_cpu_offload"
+                    )
+
                 merge_audio_checkbox = gr.Checkbox(label="Merge original audio into final video", value=True)
                 run_button = gr.Button("Generate Video")
                 
@@ -245,7 +252,7 @@ with gr.Blocks(title="StableAvatar Interface") as demo:
         
         run_button.click(
             fn=run_inference,
-            inputs=[prompt, reference_image, audio_file, merge_audio_checkbox, width, height, sample_steps],
+            inputs=[prompt, reference_image, audio_file, merge_audio_checkbox, gpu_mode, width, height, sample_steps],
             outputs=[output_video, status]
         )
     
