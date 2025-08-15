@@ -62,9 +62,7 @@ pip install hf-transfer
 echo "Downloading model checkpoints..."
 huggingface-cli download FrancisRing/StableAvatar --local-dir ./checkpoints
 
-# 10) pip install audio-separator
-echo "Installing audio-separator..."
-pip install audio-separator
+# 10) All dependencies are now handled by requirements.txt
 
 echo "Runtime setup completed successfully!"
 echo "To run the Gradio interface:"
