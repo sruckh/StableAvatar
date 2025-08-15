@@ -44,9 +44,9 @@ echo "Installing Python requirements..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 6) Install flash attention from source to ensure ABI compatibility
-echo "Installing flash attention from source..."
-pip install flash-attn --no-build-isolation
+# 6) Install flash attention wheel
+echo "Installing flash attention..."
+pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.7cxx11abiTRUE-cp311-cp311-linux_x86_64.whl
 
 # 7) pip install "huggingface_hub[cli]"
 echo "Installing HuggingFace Hub CLI..."
