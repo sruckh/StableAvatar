@@ -37,7 +37,7 @@ def run_inference(prompt, reference_image, audio_file, merge_audio, gpu_mode, wi
     
     # Prepare the inference command with proper arguments
     cmd = [
-        "python", "inference.py",
+        "python", "debug_inference.py",
         "--config_path=deepspeed_config/wan2.1/wan_civitai.yaml",
         f"--pretrained_model_name_or_path=./checkpoints/Wan2.1-Fun-V1.1-1.3B-InP",
         f"--transformer_path=./checkpoints/StableAvatar-1.3B/transformer3d-square.pt",
