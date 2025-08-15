@@ -94,7 +94,9 @@ def run_inference(prompt, reference_image, audio_file, merge_audio, width=512, h
             else:
                 return video_path_no_audio, "Inference completed successfully (audio not merged)."
         else:
-            return None, f"Error running inference: {result.stderr[:500]}"
+            error_message = f"Error running inference. Stderr:\n{result.stderr}"
+            print(error_message)  # Also print to container logs
+            return None, error_message
             
     except subprocess.TimeoutExpired:
         return None, "Inference timed out after 1 hour"
@@ -128,7 +130,9 @@ def extract_audio(video_file):
         if result.returncode == 0 and os.path.exists(audio_output_path):
             return audio_output_path, "Audio extracted successfully!"
         else:
-            return None, f"Error extracting audio: {result.stderr[:500]}"
+            error_message = f"Error extracting audio. Stderr:\n{result.stderr}"
+            print(error_message)
+            return None, error_message
             
     except subprocess.TimeoutExpired:
         return None, "Audio extraction timed out"
@@ -165,7 +169,9 @@ def separate_vocals(audio_file):
         if result.returncode == 0 and os.path.exists(vocal_output_path):
             return vocal_output_path, "Vocal separation completed successfully!"
         else:
-            return None, f"Error separating vocals: {result.stderr[:500]}"
+            error_message = f"Error separating vocals. Stderr:\n{result.stderr}"
+            print(error_message)
+            return None, error_message
             
     except subprocess.TimeoutExpired:
         return None, "Vocal separation timed out"
