@@ -44,9 +44,9 @@ echo "Installing Python requirements..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 6) Install flash attention wheel
-echo "Installing flash attention..."
-pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
+# 6) Install flash attention from source to ensure ABI compatibility
+echo "Installing flash attention from source..."
+pip install flash-attn --no-build-isolation
 
 # 7) pip install "huggingface_hub[cli]"
 echo "Installing HuggingFace Hub CLI..."
@@ -69,6 +69,11 @@ echo "To run the Gradio interface:"
 echo "1. Activate the virtual environment: source /workspace/venv/bin/activate"
 echo "2. Navigate to the project directory: cd /workspace/StableAvatar"
 echo "3. Run the app: python app.py"
+
+# Print environment info for debugging
+echo "--- Printing environment versions for debugging ---"
+python -c "import torch; print(f'Torch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
+echo "-------------------------------------------------"
 
 # Keep the container running
 exec "$@"
