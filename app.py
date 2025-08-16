@@ -23,6 +23,69 @@ import math
 import subprocess
 
 
+def extract_audio(video_file):
+    """
+    Extract audio from video file using audio_extractor.py
+    """
+    if not video_file:
+        return None, "No video file provided."
+
+    # Use a unique name to avoid conflicts
+    output_filename = f"temp/extracted_audio_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+
+    # This is a subprocess call, which we are trying to phase out, but for these helpers it's acceptable for now.
+    cmd = [
+        "python", "audio_extractor.py",
+        f"--video_path={video_file.name}",
+        f"--saved_audio_path={output_filename}"
+    ]
+
+    try:
+        print(f"Running audio extraction command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+        if result.returncode == 0 and os.path.exists(output_filename):
+            return output_filename, "Audio extracted successfully!"
+        else:
+            error_message = f"Error extracting audio. Stderr:\n{result.stderr}"
+            print(error_message)
+            return None, error_message
+
+    except Exception as e:
+        return None, f"Error extracting audio: {str(e)}"
+
+def separate_vocals(audio_file):
+    """
+    Separate vocals from audio file using vocal_seperator.py
+    """
+    if not audio_file:
+        return None, "No audio file provided."
+
+    output_filename = f"temp/separated_vocal_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+
+    # This is a subprocess call, which we are trying to phase out, but for these helpers it's acceptable for now.
+    cmd = [
+        "python", "vocal_seperator.py",
+        f"--audio_separator_model_file=./checkpoints/Kim_Vocal_2.onnx",
+        f"--audio_file_path={audio_file}",
+        f"--saved_vocal_path={output_filename}"
+    ]
+
+    try:
+        print(f"Running vocal separation command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+        if result.returncode == 0 and os.path.exists(output_filename):
+            return output_filename, "Vocal separation completed successfully!"
+        else:
+            error_message = f"Error separating vocals. Stderr:\n{result.stderr}"
+            print(error_message)
+            return None, error_message
+
+    except Exception as e:
+        return None, f"Error separating vocals: {str(e)}"
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--server_name", type=str, default="0.0.0.0", help="IP address, change to 0.0.0.0 for LAN access")
 parser.add_argument("--server_port", type=int, default=7860, help="Port to use")
