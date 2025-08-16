@@ -256,156 +256,6 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
             )
             teacache_threshold = gr.Slider(label="teacache threshold", info = "Recommended: 0.1, 0 disables teacache acceleration", minimum=0, maximum=1, step=0.01, value=0)
             num_skip_start_steps = gr.Slider(label="Skip Start Steps", info = "Recommended: 5", minimum=0, maximum=100, step=1, value=5)
-    with gr.TabItem("StableAvatar"):
-        with gr.Row():
-            with gr.Column():
-                with gr.Row():
-                    image_path = gr.Image(label="Upload Image", type="filepath", height=280)
-                    audio_path = gr.Audio(label="Upload Audio", type="filepath")
-                prompt = gr.Textbox(label="Prompt", value="")
-                negative_prompt = gr.Textbox(label="Negative Prompt", value="Low quality, bad quality, blur, blurry, (deformed iris, deformed pupils), (worst quality, low quality, normal quality), jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck")
-                generate_button = gr.Button("🎬 Generate", variant='primary')
-                merge_audio_checkbox = gr.Checkbox(label="Merge audio into final video", value=True)
-                with gr.Accordion("Parameter Settings", open=True):
-                    with gr.Row():
-                        width = gr.Slider(label="Width", minimum=256, maximum=2048, step=16, value=512)
-                        height = gr.Slider(label="Height", minimum=256, maximum=2048, step=16, value=512)
-                    with gr.Row():
-                        exchange_button = gr.Button("🔄 Swap Width/Height")
-                        adjust_button = gr.Button("Adjust Width/Height based on Image")
-                    with gr.Row():
-                        guidance_scale = gr.Slider(label="guidance scale", minimum=1.0, maximum=10.0, step=0.1, value=6.0)
-                        num_inference_steps = gr.Slider(label="Sampling Steps (Recommended: 50)", minimum=1, maximum=100, step=1, value=50)
-                    with gr.Row():
-                        text_guide_scale = gr.Slider(label="text guidance scale", minimum=1.0, maximum=10.0, step=0.1, value=3.0)
-                        audio_guide_scale = gr.Slider(label="audio guidance scale", minimum=1.0, maximum=10.0, step=0.1, value=5.0)
-                    with gr.Row():
-                        motion_frame = gr.Slider(label="motion frame", minimum=1, maximum=50, step=1, value=25)
-                        fps = gr.Slider(label="FPS", minimum=1, maximum=60, step=1, value=25)
-                    with gr.Row():
-                        overlap_window_length = gr.Slider(label="overlap window length", minimum=1, maximum=20, step=1, value=5)
-                        seed_param = gr.Number(label="Seed, -1 for random", value=-1)
-            with gr.Column():
-                info = gr.Textbox(label="Info", interactive=False)
-                video_output = gr.Video(label="Result", interactive=False)
-                seed_output = gr.Textbox(label="Seed")
-
-    gr.on(
-        triggers=[generate_button.click, prompt.submit, negative_prompt.submit],
-        fn = generate,
-        inputs = [
-            GPU_memory_mode,
-            teacache_threshold,
-            num_skip_start_steps,
-            image_path,
-            audio_path,
-            prompt,
-            negative_prompt,
-            merge_audio_checkbox,
-            width,
-            height,
-            guidance_scale,
-            num_inference_steps,
-            text_guide_scale,
-            audio_guide_scale,
-            motion_frame,
-            fps,
-            overlap_window_length,
-            seed_param,
-        ],
-        outputs = [video_output, seed_output, info]
-    )
-    exchange_button.click(
-        fn=exchange_width_height,
-        inputs=[width, height],
-        outputs=[width, height, info]
-    )
-    adjust_button.click(
-        fn=adjust_width_height,
-        inputs=[image_path],
-        outputs=[width, height, info]
-    )
-
-
-def extract_audio(video_file):
-    """
-    Extract audio from video file using audio_extractor.py
-    """
-    if not video_file:
-        return None, "No video file provided."
-    
-    # Use a unique name to avoid conflicts
-    output_filename = f"temp/extracted_audio_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
-    
-    # This is a subprocess call, which we are trying to phase out, but for these helpers it's acceptable for now.
-    cmd = [
-        "python", "audio_extractor.py",
-        f"--video_path={video_file.name}",
-        f"--saved_audio_path={output_filename}"
-    ]
-    
-    try:
-        print(f"Running audio extraction command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        
-        if result.returncode == 0 and os.path.exists(output_filename):
-            return output_filename, "Audio extracted successfully!"
-        else:
-            error_message = f"Error extracting audio. Stderr:\n{result.stderr}"
-            print(error_message)
-            return None, error_message
-            
-    except Exception as e:
-        return None, f"Error extracting audio: {str(e)}"
-
-def separate_vocals(audio_file):
-    """
-    Separate vocals from audio file using vocal_seperator.py
-    """
-    if not audio_file:
-        return None, "No audio file provided."
-
-    output_filename = f"temp/separated_vocal_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
-    
-    # This is a subprocess call, which we are trying to phase out, but for these helpers it's acceptable for now.
-    cmd = [
-        "python", "vocal_seperator.py",
-        f"--audio_separator_model_file=./checkpoints/Kim_Vocal_2.onnx",
-        f"--audio_file_path={audio_file}",
-        f"--saved_vocal_path={output_filename}"
-    ]
-    
-    try:
-        print(f"Running vocal separation command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        
-        if result.returncode == 0 and os.path.exists(output_filename):
-            return output_filename, "Vocal separation completed successfully!"
-        else:
-            error_message = f"Error separating vocals. Stderr:\n{result.stderr}"
-            print(error_message)
-            return None, error_message
-            
-    except Exception as e:
-        return None, f"Error separating vocals: {str(e)}"
-
-
-with gr.Blocks(theme=gr.themes.Base()) as demo:
-    gr.Markdown("""
-            <div>
-                <h2 style="font-size: 30px;text-align: center;">StableAvatar</h2>
-            </div>
-            """)
-    with gr.Accordion("Model Settings", open=False):
-        with gr.Row():
-            GPU_memory_mode = gr.Dropdown(
-                label = "GPU Memory Mode",
-                info = "Normal uses 25G VRAM, model_cpu_offload uses 13G VRAM",
-                choices = ["Normal", "model_cpu_offload", "model_cpu_offload_and_qfloat8", "sequential_cpu_offload"],
-                value = "model_cpu_offload"
-            )
-            teacache_threshold = gr.Slider(label="teacache threshold", info = "Recommended: 0.1, 0 disables teacache acceleration", minimum=0, maximum=1, step=0.01, value=0)
-            num_skip_start_steps = gr.Slider(label="Skip Start Steps", info = "Recommended: 5", minimum=0, maximum=100, step=1, value=5)
     
     with gr.TabItem("Inference"):
         with gr.Row():
@@ -417,6 +267,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
                 negative_prompt = gr.Textbox(label="Negative Prompt", value="Low quality, bad quality, blur, blurry, (deformed iris, deformed pupils), (worst quality, low quality, normal quality), jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck")
                 generate_button = gr.Button("🎬 Generate", variant='primary')
                 with gr.Accordion("Parameter Settings", open=True):
+                    merge_audio_checkbox = gr.Checkbox(label="Merge audio into final video", value=True)
                     with gr.Row():
                         width = gr.Slider(label="Width", minimum=256, maximum=2048, step=16, value=512)
                         height = gr.Slider(label="Height", minimum=256, maximum=2048, step=16, value=512)
@@ -451,6 +302,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
                 audio_path,
                 prompt,
                 negative_prompt,
+                merge_audio_checkbox,
                 width,
                 height,
                 guidance_scale,
