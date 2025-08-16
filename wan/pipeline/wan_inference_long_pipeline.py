@@ -226,10 +226,10 @@ class WanI2VTalkingInferenceLongPipeline(DiffusionPipeline):
             wav2vec=wav2vec,
         )
 
-        self.video_processor = VideoProcessor(vae_scale_factor=self.vae.spacial_compression_ratio)
-        self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae.spacial_compression_ratio)
+        self.video_processor = VideoProcessor(vae_scale_factor=self.vae.config.spatial_compression_ratio)
+        self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae.config.spatial_compression_ratio)
         self.mask_processor = VaeImageProcessor(
-            vae_scale_factor=self.vae.spacial_compression_ratio, do_normalize=False, do_binarize=True,
+            vae_scale_factor=self.vae.config.spatial_compression_ratio, do_normalize=False, do_binarize=True,
             do_convert_grayscale=True
         )
 
@@ -373,8 +373,8 @@ class WanI2VTalkingInferenceLongPipeline(DiffusionPipeline):
             batch_size,
             num_channels_latents,
             (num_frames - 1) // self.vae.temporal_compression_ratio + 1,
-            height // self.vae.spacial_compression_ratio,
-            width // self.vae.spacial_compression_ratio,
+            height // self.vae.config.spatial_compression_ratio,
+            width // self.vae.config.spatial_compression_ratio,
         )
 
         if latents is None:
